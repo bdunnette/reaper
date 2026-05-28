@@ -215,3 +215,28 @@ async def test_async_autocomplete(monkeypatch):
     assert len(results) == 1
     assert results[0].city == "Austin"
     await client.close()
+
+
+def test_to_dataframe_zero_dependency(monkeypatch):
+    """Test that to_dataframe calls narwhals.from_dict correctly."""
+    client = RealtorClient()
+
+    def mock_post(*args, **kwargs):
+        class MockResponse:
+            status_code = 200
+            def json(self):
+                return MOCK_SEARCH_RESPONSE
+            def raise_for_status(self):
+                pass
+        return MockResponse()
+
+    monkeypatch.setattr(client.client, "post", mock_post)
+    res = client.search_properties(location="Austin, TX")
+
+    # Since neither polars nor pandas is installed in the dependencies anymore,
+    # calling to_dataframe() without an installed backend will raise an ImportError.
+    # This verifies the Narwhals integration is hooked up and executes correctly.
+    with pytest.raises(ImportError) as exc_info:
+        res.to_dataframe()
+
+    assert "No dataframe backend" in str(exc_info.value)

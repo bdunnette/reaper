@@ -76,6 +76,75 @@ class HomeSearchResult(BaseModel):
     total: int
     results: list[Property]
 
+    def to_dataframe(self, backend: str | None = None):
+        """
+        Convert the search results to a Narwhals-compatible DataFrame.
+
+        Args:
+            backend: Optional backend name to use (e.g. "polars", "pandas").
+                     If None, it will automatically detect and use the first available backend (polars or pandas).
+
+        Returns:
+            A narwhals.DataFrame wrapping the generated native DataFrame.
+        """
+        import narwhals as nw
+
+        if backend is None:
+            try:
+                import polars as pl
+                backend = "polars"
+            except ImportError:
+                try:
+                    import pandas as pd
+                    backend = "pandas"
+                except ImportError:
+                    raise ImportError(
+                        "No dataframe backend (polars or pandas) found. "
+                        "Please install polars or pandas to use to_dataframe()."
+                    )
+
+        flat_data = []
+        for prop in self.results:
+            desc = prop.description or PropertyDescription()
+            addr = prop.location.address if (prop.location and prop.location.address) else Address()
+            coord = addr.coordinate if addr else None
+
+            flat_data.append({
+                "property_id": prop.property_id,
+                "listing_id": prop.listing_id,
+                "status": prop.status,
+                "list_price": prop.list_price,
+                "beds": desc.beds,
+                "baths": desc.baths,
+                "baths_full": desc.baths_full,
+                "baths_half": desc.baths_half,
+                "sqft": desc.sqft,
+                "lot_sqft": desc.lot_sqft,
+                "year_built": desc.year_built,
+                "property_type": desc.type,
+                "address_line": addr.line,
+                "city": addr.city,
+                "state_code": addr.state_code,
+                "postal_code": addr.postal_code,
+                "latitude": coord.lat if coord else None,
+                "longitude": coord.lon if coord else None,
+                "primary_photo": prop.primary_photo.href if prop.primary_photo else None,
+            })
+
+        if not flat_data:
+            dict_data = {
+                "property_id": [], "listing_id": [], "status": [], "list_price": [],
+                "beds": [], "baths": [], "baths_full": [], "baths_half": [],
+                "sqft": [], "lot_sqft": [], "year_built": [], "property_type": [],
+                "address_line": [], "city": [], "state_code": [], "postal_code": [],
+                "latitude": [], "longitude": [], "primary_photo": []
+            }
+        else:
+            keys = flat_data[0].keys()
+            dict_data = {k: [item[k] for item in flat_data] for k in keys}
+
+        return nw.from_dict(dict_data, backend=backend)
+
 class AutocompleteItem(BaseModel):
     area_type: str | None = None
     city: str | None = None

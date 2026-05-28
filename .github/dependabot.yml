@@ -1,0 +1,23 @@
+# .github/dependabot.yml
+
+version: 2
+updates:
+  # Enable version updates for pip (handles PEP 621 pyproject.toml / uv)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"
