@@ -77,6 +77,25 @@ with RealtorClient() as client:
         print(f"Found: {item.single_line_address} (Slug: {item.slug_id})")
 ```
 
+### 4. Dataframe Conversion (Zero-Dependency via Narwhals)
+
+Convert your search results directly to a Narwhals DataFrame. Narwhals has zero mandatory dependencies on Polars or Pandas, but will automatically detect and wrap whichever backend is installed in your local environment.
+
+```python
+from reaper import RealtorClient
+
+with RealtorClient() as client:
+    res = client.search_properties(location="Austin, TX", price_max=700000)
+
+    # Converts list of properties to a Narwhals DataFrame automatically
+    df = res.to_dataframe()
+    print("DataFrame shape:", df.shape)
+
+    # Run generic library-agnostic filters
+    filtered_df = df.filter(df["beds"] >= 4)
+    print(filtered_df.select(["property_id", "list_price", "beds", "address_line"]))
+```
+
 ---
 
 ## 🧬 Exception Hierarchy
