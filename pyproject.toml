@@ -1,0 +1,15 @@
+[project]
+name = "reaper"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.13.4",
+]
+
+[dependency-groups]
+dev = [
+    "prek>=0.4.3",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+]
