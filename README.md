@@ -119,3 +119,28 @@ To run the unit tests, use the following `uv` commands:
 uv add --dev pytest pytest-asyncio
 uv run pytest -o pythonpath=.
 ```
+
+---
+
+## 📖 Running Examples
+
+The library comes with several examples demonstrating autocomplete, search, detailed information, and dataframe compatibility.
+
+To run these examples, set the Python module path so the runner can resolve the local package:
+
+### On PowerShell (Windows)
+```powershell
+$env:PYTHONPATH="."
+uv run python examples/search.py
+uv run python examples/async_detail.py
+uv run python examples/location_suggestions.py
+uv run python examples/narwhals_dataframe.py
+```
+
+### On Bash (Linux/macOS)
+```bash
+PYTHONPATH=. uv run python examples/search.py
+PYTHONPATH=. uv run python examples/async_detail.py
+PYTHONPATH=. uv run python examples/location_suggestions.py
+PYTHONPATH=. uv run python examples/narwhals_dataframe.py
+```
