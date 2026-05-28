@@ -58,7 +58,23 @@ async def fetch_property_details(property_id: str):
         except RealtorError as e:
             print(f"An error occurred: {e}")
 
+async def main():
+    # To make the example interactive and functional out-of-the-box,
+    # we first search for a live property in Austin, TX to get a valid ID.
+    print("Searching for a live property ID in Austin, TX...")
+    async with AsyncRealtorClient() as client:
+        try:
+            search_res = await client.search_properties(location="Austin, TX", limit=1)
+            if search_res.results:
+                target_id = search_res.results[0].property_id
+                print(f"Found live property ID: {target_id}")
+                await fetch_property_details(target_id)
+            else:
+                print("No live properties found, using fallback dummy ID.")
+                await fetch_property_details("12345")
+        except Exception as e:
+            print(f"Search failed: {e}. Falling back to dummy ID.")
+            await fetch_property_details("12345")
+
 if __name__ == "__main__":
-    # Standard dummy property ID for illustration
-    target_property_id = "12345"
-    asyncio.run(fetch_property_details(target_property_id))
+    asyncio.run(main())

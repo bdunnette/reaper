@@ -4,7 +4,7 @@
 Synchronous and Asynchronous GraphQL clients to retrieve real estate data from Realtor.com.
 """
 
-from typing import Any
+from typing import Any, Generator, AsyncGenerator
 import httpx
 from .queries import PROPERTY_SEARCH_QUERY, PROPERTY_DETAIL_QUERY, AUTOCOMPLETE_QUERY
 from .models import Property, HomeSearchResult, AutocompleteItem
@@ -17,6 +17,10 @@ DEFAULT_HEADERS = {
     "Referer": "https://www.realtor.com/",
     "Origin": "https://www.realtor.com",
     "Content-Type": "application/json",
+    "rdc-client-name": "realtor-web",
+    "rdc-client-version": "1.0.0",
+    "apollographql-client-name": "realtor-web",
+    "apollographql-client-version": "1.0.0",
 }
 
 DEFAULT_ENDPOINT = "https://www.realtor.com/frontdoor/graphql"
@@ -44,27 +48,47 @@ class RealtorClient:
         )
 
     def _execute_query(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+        operation_name = None
+        if "query " in query:
+            parts = query.split("query ")
+            if len(parts) > 1:
+                op_part = parts[1].split("(")[0].split("{")[0].strip()
+                if op_part:
+                    operation_name = op_part
+
         payload = {
             "query": query,
             "variables": variables,
         }
+        if operation_name:
+            payload["operationName"] = operation_name
         try:
             response = self.client.post(self.endpoint, json=payload)
             if response.status_code in (401, 403):
                 raise RealtorAuthenticationError(
                     f"Access denied (HTTP {response.status_code}). Realtor.com bot-detection might have blocked this request."
                 )
-            response.raise_for_status()
 
-            data = response.json()
-            if "errors" in data:
-                raise RealtorAPIError(
-                    f"GraphQL query returned errors: {data['errors'][0].get('message')}",
-                    errors=data["errors"],
-                )
+            # Check for detailed GraphQL errors in response body first
+            try:
+                data = response.json()
+                if "errors" in data:
+                    raise RealtorAPIError(
+                        f"GraphQL query returned errors: {data['errors'][0].get('message')}",
+                        errors=data["errors"],
+                    )
+            except (ValueError, KeyError, IndexError):
+                pass
+
+            response.raise_for_status()
             return data.get("data", {})
         except httpx.HTTPStatusError as e:
-            raise RealtorRequestError(f"HTTP error occurred: {e}") from e
+            body_msg = ""
+            try:
+                body_msg = f" | Response Body: {e.response.text[:500]}"
+            except Exception:
+                pass
+            raise RealtorRequestError(f"HTTP error occurred: {e}{body_msg}") from e
         except httpx.RequestError as e:
             raise RealtorRequestError(f"Network error occurred: {e}") from e
         except ValueError as e:
@@ -103,26 +127,121 @@ class RealtorClient:
         Returns:
             A HomeSearchResult model.
         """
+        # Build the search criteria dynamically
+        query_criteria = {
+            "search_location": {"location": location}
+        }
+        if status:
+            # Convert status strings to uppercase Enums (e.g. "for_sale" -> "FOR_SALE")
+            query_criteria["status"] = [s.upper() for s in status]
+
+        # Only add list_price filter if min or max is provided
+        if price_min is not None or price_max is not None:
+            query_criteria["list_price"] = {}
+            if price_min is not None:
+                query_criteria["list_price"]["min"] = float(price_min)
+            if price_max is not None:
+                query_criteria["list_price"]["max"] = float(price_max)
+
+        # Only add beds filter if min or max is provided
+        if beds_min is not None or beds_max is not None:
+            query_criteria["beds"] = {}
+            if beds_min is not None:
+                query_criteria["beds"]["min"] = beds_min
+            if beds_max is not None:
+                query_criteria["beds"]["max"] = beds_max
+
+        # Only add baths filter if min or max is provided
+        if baths_min is not None or baths_max is not None:
+            query_criteria["baths"] = {}
+            if baths_min is not None:
+                query_criteria["baths"]["min"] = baths_min
+            if baths_max is not None:
+                query_criteria["baths"]["max"] = baths_max
+
+        if prop_type:
+            query_criteria["type"] = prop_type
+
         variables = {
-            "location": location,
+            "query": query_criteria,
             "limit": limit,
             "offset": offset,
-            "status": status,
-            "priceMin": price_min,
-            "priceMax": price_max,
-            "bedsMin": beds_min,
-            "bedsMax": beds_max,
-            "bathsMin": baths_min,
-            "bathsMax": baths_max,
-            "propType": prop_type,
         }
-
-        # Remove None values so they don't break the query or use defaults
-        variables = {k: v for k, v in variables.items() if v is not None}
 
         res = self._execute_query(PROPERTY_SEARCH_QUERY, variables)
         search_data = res.get("home_search") or {"count": 0, "total": 0, "results": []}
         return HomeSearchResult.model_validate(search_data)
+
+    def search_properties_paginated(
+        self,
+        location: str,
+        page_size: int = 20,
+        max_results: int | None = None,
+        status: list[str] | None = None,
+        price_min: int | None = None,
+        price_max: int | None = None,
+        beds_min: int | None = None,
+        beds_max: int | None = None,
+        baths_min: float | None = None,
+        baths_max: float | None = None,
+        prop_type: list[str] | None = None,
+    ) -> Generator[Property, None, None]:
+        """
+        Search for properties matching specified criteria, yielding results dynamically
+        page-by-page. Automatically handles offset increments and respects max_results.
+
+        Args:
+            location: City/state (e.g. "Austin, TX"), postal code, or location query.
+            page_size: Number of results to return per page (default: 20).
+            max_results: Maximum total results to yield. If None, yields all available results.
+            status: Listing status, e.g. ["for_sale", "for_rent", "sold"].
+            price_min: Minimum listing price.
+            price_max: Maximum listing price.
+            beds_min: Minimum number of bedrooms.
+            beds_max: Maximum number of bedrooms.
+            baths_min: Minimum number of bathrooms.
+            baths_max: Maximum number of bathrooms.
+            prop_type: List of property types, e.g. ["single_family", "condo"].
+
+        Yields:
+            Property models matching the search criteria.
+        """
+        offset = 0
+        total_yielded = 0
+        while True:
+            limit = page_size
+            if max_results is not None:
+                remaining = max_results - total_yielded
+                if remaining <= 0:
+                    break
+                limit = min(page_size, remaining)
+
+            result = self.search_properties(
+                location=location,
+                limit=limit,
+                offset=offset,
+                status=status,
+                price_min=price_min,
+                price_max=price_max,
+                beds_min=beds_min,
+                beds_max=beds_max,
+                baths_min=baths_min,
+                baths_max=baths_max,
+                prop_type=prop_type,
+            )
+
+            if not result.results:
+                break
+
+            for prop in result.results:
+                yield prop
+                total_yielded += 1
+                if max_results is not None and total_yielded >= max_results:
+                    return
+
+            offset += len(result.results)
+            if len(result.results) < limit:
+                break
 
     def get_property_detail(self, property_id: str) -> Property | None:
         """
@@ -134,11 +253,30 @@ class RealtorClient:
         Returns:
             A Property model or None if not found.
         """
-        variables = {"property_id": property_id}
-        res = self._execute_query(PROPERTY_DETAIL_QUERY, variables)
-        prop_data = res.get("property")
-        if not prop_data:
+        # 1. Fetch core details using home_search
+        search_res = self._execute_query(
+            PROPERTY_SEARCH_QUERY,
+            {"query": {"property_id": property_id}}
+        )
+        results = search_res.get("home_search", {}).get("results") or []
+        if not results:
             return None
+        prop_data = results[0]
+
+        # 2. Fetch history using property query
+        try:
+            history_res = self._execute_query(
+                PROPERTY_DETAIL_QUERY,
+                {"property_id": property_id}
+            )
+            hist_data = history_res.get("property") or {}
+            for k, v in hist_data.items():
+                if v is not None and k != "property_id":
+                    prop_data[k] = v
+        except Exception:
+            # If the history query fails or isn't supported, we still have core details
+            pass
+
         return Property.model_validate(prop_data)
 
     def autocomplete(self, query: str) -> list[AutocompleteItem]:
@@ -151,11 +289,34 @@ class RealtorClient:
         Returns:
             A list of AutocompleteItem models.
         """
-        variables = {"query": query}
-        res = self._execute_query(AUTOCOMPLETE_QUERY, variables)
-        autocomplete_data = res.get("autocomplete") or {}
-        results = autocomplete_data.get("results") or []
-        return [AutocompleteItem.model_validate(item) for item in results]
+        try:
+            response = self.client.get(
+                "https://www.realtor.com/api/v1/suggest",
+                params={"input": query, "client_id": "rdc-x"}
+            )
+            if response.status_code in (401, 403):
+                raise RealtorAuthenticationError(
+                    f"Access denied (HTTP {response.status_code}). Realtor.com bot-detection might have blocked this request."
+                )
+            response.raise_for_status()
+            data = response.json()
+            if "errors" in data:
+                raise RealtorAPIError(
+                    f"GraphQL query returned errors: {data['errors'][0].get('message')}",
+                    errors=data["errors"],
+                )
+            # Handle GraphQL-style nested data envelopes if present
+            suggestion_data = data.get("data") or data
+            results = suggestion_data.get("autocomplete") or suggestion_data.get("suggestions") or []
+            if isinstance(results, dict):
+                results = results.get("results") or []
+            return [AutocompleteItem.model_validate(item) for item in results]
+        except httpx.HTTPStatusError as e:
+            raise RealtorRequestError(f"HTTP error occurred: {e}") from e
+        except httpx.RequestError as e:
+            raise RealtorRequestError(f"Network error occurred: {e}") from e
+        except ValueError as e:
+            raise RealtorError(f"Failed to parse JSON response: {e}") from e
 
     def close(self) -> None:
         """Close the underlying HTTP client."""
@@ -191,27 +352,47 @@ class AsyncRealtorClient:
         )
 
     async def _execute_query(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+        operation_name = None
+        if "query " in query:
+            parts = query.split("query ")
+            if len(parts) > 1:
+                op_part = parts[1].split("(")[0].split("{")[0].strip()
+                if op_part:
+                    operation_name = op_part
+
         payload = {
             "query": query,
             "variables": variables,
         }
+        if operation_name:
+            payload["operationName"] = operation_name
         try:
             response = await self.client.post(self.endpoint, json=payload)
             if response.status_code in (401, 403):
                 raise RealtorAuthenticationError(
                     f"Access denied (HTTP {response.status_code}). Realtor.com bot-detection might have blocked this request."
                 )
-            response.raise_for_status()
 
-            data = response.json()
-            if "errors" in data:
-                raise RealtorAPIError(
-                    f"GraphQL query returned errors: {data['errors'][0].get('message')}",
-                    errors=data["errors"],
-                )
+            # Check for detailed GraphQL errors in response body first
+            try:
+                data = response.json()
+                if "errors" in data:
+                    raise RealtorAPIError(
+                        f"GraphQL query returned errors: {data['errors'][0].get('message')}",
+                        errors=data["errors"],
+                    )
+            except (ValueError, KeyError, IndexError):
+                pass
+
+            response.raise_for_status()
             return data.get("data", {})
         except httpx.HTTPStatusError as e:
-            raise RealtorRequestError(f"HTTP error occurred: {e}") from e
+            body_msg = ""
+            try:
+                body_msg = f" | Response Body: {e.response.text[:500]}"
+            except Exception:
+                pass
+            raise RealtorRequestError(f"HTTP error occurred: {e}{body_msg}") from e
         except httpx.RequestError as e:
             raise RealtorRequestError(f"Network error occurred: {e}") from e
         except ValueError as e:
@@ -250,25 +431,121 @@ class AsyncRealtorClient:
         Returns:
             A HomeSearchResult model.
         """
+        # Build the search criteria dynamically
+        query_criteria = {
+            "search_location": {"location": location}
+        }
+        if status:
+            # Convert status strings to uppercase Enums (e.g. "for_sale" -> "FOR_SALE")
+            query_criteria["status"] = [s.upper() for s in status]
+
+        # Only add list_price filter if min or max is provided
+        if price_min is not None or price_max is not None:
+            query_criteria["list_price"] = {}
+            if price_min is not None:
+                query_criteria["list_price"]["min"] = float(price_min)
+            if price_max is not None:
+                query_criteria["list_price"]["max"] = float(price_max)
+
+        # Only add beds filter if min or max is provided
+        if beds_min is not None or beds_max is not None:
+            query_criteria["beds"] = {}
+            if beds_min is not None:
+                query_criteria["beds"]["min"] = beds_min
+            if beds_max is not None:
+                query_criteria["beds"]["max"] = beds_max
+
+        # Only add baths filter if min or max is provided
+        if baths_min is not None or baths_max is not None:
+            query_criteria["baths"] = {}
+            if baths_min is not None:
+                query_criteria["baths"]["min"] = baths_min
+            if baths_max is not None:
+                query_criteria["baths"]["max"] = baths_max
+
+        if prop_type:
+            query_criteria["type"] = prop_type
+
         variables = {
-            "location": location,
+            "query": query_criteria,
             "limit": limit,
             "offset": offset,
-            "status": status,
-            "priceMin": price_min,
-            "priceMax": price_max,
-            "bedsMin": beds_min,
-            "bedsMax": beds_max,
-            "bathsMin": baths_min,
-            "bathsMax": baths_max,
-            "propType": prop_type,
         }
-
-        variables = {k: v for k, v in variables.items() if v is not None}
 
         res = await self._execute_query(PROPERTY_SEARCH_QUERY, variables)
         search_data = res.get("home_search") or {"count": 0, "total": 0, "results": []}
         return HomeSearchResult.model_validate(search_data)
+
+    async def search_properties_paginated(
+        self,
+        location: str,
+        page_size: int = 20,
+        max_results: int | None = None,
+        status: list[str] | None = None,
+        price_min: int | None = None,
+        price_max: int | None = None,
+        beds_min: int | None = None,
+        beds_max: int | None = None,
+        baths_min: float | None = None,
+        baths_max: float | None = None,
+        prop_type: list[str] | None = None,
+    ) -> AsyncGenerator[Property, None]:
+        """
+        Search for properties matching specified criteria asynchronously, yielding results dynamically
+        page-by-page. Automatically handles offset increments and respects max_results.
+
+        Args:
+            location: City/state (e.g. "Austin, TX"), postal code, or location query.
+            page_size: Number of results to return per page (default: 20).
+            max_results: Maximum total results to yield. If None, yields all available results.
+            status: Listing status, e.g. ["for_sale", "for_rent", "sold"].
+            price_min: Minimum listing price.
+            price_max: Maximum listing price.
+            beds_min: Minimum number of bedrooms.
+            beds_max: Maximum number of bedrooms.
+            baths_min: Minimum number of bathrooms.
+            baths_max: Maximum number of bathrooms.
+            prop_type: List of property types, e.g. ["single_family", "condo"].
+
+        Yields:
+            Property models matching the search criteria.
+        """
+        offset = 0
+        total_yielded = 0
+        while True:
+            limit = page_size
+            if max_results is not None:
+                remaining = max_results - total_yielded
+                if remaining <= 0:
+                    break
+                limit = min(page_size, remaining)
+
+            result = await self.search_properties(
+                location=location,
+                limit=limit,
+                offset=offset,
+                status=status,
+                price_min=price_min,
+                price_max=price_max,
+                beds_min=beds_min,
+                beds_max=beds_max,
+                baths_min=baths_min,
+                baths_max=baths_max,
+                prop_type=prop_type,
+            )
+
+            if not result.results:
+                break
+
+            for prop in result.results:
+                yield prop
+                total_yielded += 1
+                if max_results is not None and total_yielded >= max_results:
+                    return
+
+            offset += len(result.results)
+            if len(result.results) < limit:
+                break
 
     async def get_property_detail(self, property_id: str) -> Property | None:
         """
@@ -280,11 +557,30 @@ class AsyncRealtorClient:
         Returns:
             A Property model or None if not found.
         """
-        variables = {"property_id": property_id}
-        res = await self._execute_query(PROPERTY_DETAIL_QUERY, variables)
-        prop_data = res.get("property")
-        if not prop_data:
+        # 1. Fetch core details using home_search
+        search_res = await self._execute_query(
+            PROPERTY_SEARCH_QUERY,
+            {"query": {"property_id": property_id}}
+        )
+        results = search_res.get("home_search", {}).get("results") or []
+        if not results:
             return None
+        prop_data = results[0]
+
+        # 2. Fetch history using property query
+        try:
+            history_res = await self._execute_query(
+                PROPERTY_DETAIL_QUERY,
+                {"property_id": property_id}
+            )
+            hist_data = history_res.get("property") or {}
+            for k, v in hist_data.items():
+                if v is not None and k != "property_id":
+                    prop_data[k] = v
+        except Exception:
+            # If the history query fails or isn't supported, we still have core details
+            pass
+
         return Property.model_validate(prop_data)
 
     async def autocomplete(self, query: str) -> list[AutocompleteItem]:
@@ -297,11 +593,34 @@ class AsyncRealtorClient:
         Returns:
             A list of AutocompleteItem models.
         """
-        variables = {"query": query}
-        res = await self._execute_query(AUTOCOMPLETE_QUERY, variables)
-        autocomplete_data = res.get("autocomplete") or {}
-        results = autocomplete_data.get("results") or []
-        return [AutocompleteItem.model_validate(item) for item in results]
+        try:
+            response = await self.client.get(
+                "https://www.realtor.com/api/v1/suggest",
+                params={"input": query, "client_id": "rdc-x"}
+            )
+            if response.status_code in (401, 403):
+                raise RealtorAuthenticationError(
+                    f"Access denied (HTTP {response.status_code}). Realtor.com bot-detection might have blocked this request."
+                )
+            response.raise_for_status()
+            data = response.json()
+            if "errors" in data:
+                raise RealtorAPIError(
+                    f"GraphQL query returned errors: {data['errors'][0].get('message')}",
+                    errors=data["errors"],
+                )
+            # Handle GraphQL-style nested data envelopes if present
+            suggestion_data = data.get("data") or data
+            results = suggestion_data.get("autocomplete") or suggestion_data.get("suggestions") or []
+            if isinstance(results, dict):
+                results = results.get("results") or []
+            return [AutocompleteItem.model_validate(item) for item in results]
+        except httpx.HTTPStatusError as e:
+            raise RealtorRequestError(f"HTTP error occurred: {e}") from e
+        except httpx.RequestError as e:
+            raise RealtorRequestError(f"Network error occurred: {e}") from e
+        except ValueError as e:
+            raise RealtorError(f"Failed to parse JSON response: {e}") from e
 
     async def close(self) -> None:
         """Close the underlying HTTP client."""

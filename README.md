@@ -49,7 +49,28 @@ with RealtorClient() as client:
         print(f"🏡 {addr.line}, {addr.city} | ${prop.list_price} (Beds: {prop.description.beds})")
 ```
 
-### 2. Asynchronous Property Details
+### 2. Search Pagination
+
+For larger datasets or continuous streaming of search results, you can use the built-in pagination generator. It automatically manages page limits, offsets, and dynamic query progression under the hood:
+
+```python
+from reaper import RealtorClient
+
+with RealtorClient() as client:
+    # Lazily stream up to 50 properties in Austin, TX, fetching 10 per page
+    generator = client.search_properties_paginated(
+        location="Austin, TX",
+        page_size=10,
+        max_results=50,
+        prop_type=["single_family"]
+    )
+
+    for idx, prop in enumerate(generator, 1):
+        addr = prop.location.address if prop.location else None
+        print(f"[{idx}] 🏡 {addr.line} - ${prop.list_price}")
+```
+
+### 3. Asynchronous Property Details
 
 ```python
 import asyncio

@@ -96,7 +96,7 @@ def test_sync_autocomplete(monkeypatch):
     """Test the synchronous autocomplete method."""
     client = RealtorClient()
 
-    def mock_post(*args, **kwargs):
+    def mock_get(*args, **kwargs):
         class MockResponse:
             status_code = 200
             def json(self):
@@ -105,7 +105,7 @@ def test_sync_autocomplete(monkeypatch):
                 pass
         return MockResponse()
 
-    monkeypatch.setattr(client.client, "post", mock_post)
+    monkeypatch.setattr(client.client, "get", mock_get)
     results = client.autocomplete("Austin, TX")
 
     assert len(results) == 1
@@ -142,10 +142,16 @@ def test_sync_get_property_detail(monkeypatch):
     client = RealtorClient()
 
     def mock_post(*args, **kwargs):
+        json_data = kwargs.get("json", {})
+        query_str = json_data.get("query", "")
+
         class MockResponse:
             status_code = 200
             def json(self):
-                return MOCK_DETAIL_RESPONSE
+                if "home_search" in query_str:
+                    return MOCK_SEARCH_RESPONSE
+                else:
+                    return MOCK_DETAIL_RESPONSE
             def raise_for_status(self):
                 pass
         return MockResponse()
@@ -162,14 +168,14 @@ def test_sync_authentication_error(monkeypatch):
     """Test RealtorAuthenticationError is raised on 403 status."""
     client = RealtorClient()
 
-    def mock_post(*args, **kwargs):
+    def mock_get(*args, **kwargs):
         class MockResponse:
             status_code = 403
             def raise_for_status(self):
                 raise httpx.HTTPStatusError("Forbidden", request=None, response=self)
         return MockResponse()
 
-    monkeypatch.setattr(client.client, "post", mock_post)
+    monkeypatch.setattr(client.client, "get", mock_get)
 
     with pytest.raises(RealtorAuthenticationError):
         client.autocomplete("Austin, TX")
@@ -179,7 +185,7 @@ def test_sync_graphql_errors(monkeypatch):
     """Test RealtorAPIError is raised when response contains errors."""
     client = RealtorClient()
 
-    def mock_post(*args, **kwargs):
+    def mock_get(*args, **kwargs):
         class MockResponse:
             status_code = 200
             def json(self):
@@ -188,7 +194,7 @@ def test_sync_graphql_errors(monkeypatch):
                 pass
         return MockResponse()
 
-    monkeypatch.setattr(client.client, "post", mock_post)
+    monkeypatch.setattr(client.client, "get", mock_get)
 
     with pytest.raises(RealtorAPIError) as exc_info:
         client.autocomplete("Austin, TX")
@@ -200,7 +206,7 @@ async def test_async_autocomplete(monkeypatch):
     """Test the asynchronous autocomplete method."""
     client = AsyncRealtorClient()
 
-    async def mock_post(*args, **kwargs):
+    async def mock_get(*args, **kwargs):
         class MockResponse:
             status_code = 200
             def json(self):
@@ -209,7 +215,7 @@ async def test_async_autocomplete(monkeypatch):
                 pass
         return MockResponse()
 
-    monkeypatch.setattr(client.client, "post", mock_post)
+    monkeypatch.setattr(client.client, "get", mock_get)
     results = await client.autocomplete("Austin, TX")
 
     assert len(results) == 1
@@ -240,3 +246,79 @@ def test_to_dataframe_zero_dependency(monkeypatch):
         res.to_dataframe()
 
     assert "No dataframe backend" in str(exc_info.value)
+
+
+def test_sync_search_properties_paginated(monkeypatch):
+    """Test the synchronous search_properties_paginated generator."""
+    client = RealtorClient()
+
+    call_count = 0
+
+    def mock_post(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        class MockResponse:
+            status_code = 200
+            def json(self):
+                # On the second call, return empty list of results to simulate end of pagination
+                if call_count > 1:
+                    return {
+                        "data": {
+                            "home_search": {
+                                "count": 0,
+                                "total": 1,
+                                "results": []
+                            }
+                        }
+                    }
+                return MOCK_SEARCH_RESPONSE
+            def raise_for_status(self):
+                pass
+        return MockResponse()
+
+    monkeypatch.setattr(client.client, "post", mock_post)
+    results = list(client.search_properties_paginated(location="Austin, TX", page_size=1, max_results=5))
+
+    assert len(results) == 1
+    assert results[0].property_id == "12345"
+    assert call_count == 2  # The second call returned empty results and terminated loop
+
+
+@pytest.mark.asyncio
+async def test_async_search_properties_paginated(monkeypatch):
+    """Test the asynchronous search_properties_paginated generator."""
+    client = AsyncRealtorClient()
+
+    call_count = 0
+
+    async def mock_post(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        class MockResponse:
+            status_code = 200
+            def json(self):
+                if call_count > 1:
+                    return {
+                        "data": {
+                            "home_search": {
+                                "count": 0,
+                                "total": 1,
+                                "results": []
+                            }
+                        }
+                    }
+                return MOCK_SEARCH_RESPONSE
+            def raise_for_status(self):
+                pass
+        return MockResponse()
+
+    monkeypatch.setattr(client.client, "post", mock_post)
+
+    results = []
+    async for prop in client.search_properties_paginated(location="Austin, TX", page_size=1, max_results=5):
+        results.append(prop)
+
+    assert len(results) == 1
+    assert results[0].property_id == "12345"
+    assert call_count == 2
+    await client.close()
