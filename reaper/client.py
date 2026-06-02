@@ -132,8 +132,8 @@ class RealtorClient:
             "search_location": {"location": location}
         }
         if status:
-            # Convert status strings to uppercase Enums (e.g. "for_sale" -> "FOR_SALE")
-            query_criteria["status"] = [s.upper() for s in status]
+            # Convert status strings to lowercase Enums (e.g. "FOR_SALE" -> "for_sale")
+            query_criteria["status"] = [s.lower() for s in status]
 
         # Only add list_price filter if min or max is provided
         if price_min is not None or price_max is not None:
@@ -436,8 +436,8 @@ class AsyncRealtorClient:
             "search_location": {"location": location}
         }
         if status:
-            # Convert status strings to uppercase Enums (e.g. "for_sale" -> "FOR_SALE")
-            query_criteria["status"] = [s.upper() for s in status]
+            # Convert status strings to lowercase Enums (e.g. "FOR_SALE" -> "for_sale")
+            query_criteria["status"] = [s.lower() for s in status]
 
         # Only add list_price filter if min or max is provided
         if price_min is not None or price_max is not None:
