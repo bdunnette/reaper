@@ -76,3 +76,8 @@ except RealtorAuthenticationError:
     with RealtorClient(proxy="http://rotating-proxy.net:8000") as client:
         results = client.autocomplete("Miami, FL")
 ```
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->

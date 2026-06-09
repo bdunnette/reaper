@@ -1,50 +1,48 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+SYNC IMPACT REPORT
+- Version change: Initial -> 1.0.0
+- List of modified principles:
+  - PRINCIPLE_1: Browser Fingerprint Emulation & Proxy Integration
+  - PRINCIPLE_2: Pydantic-Validated Models
+  - PRINCIPLE_3: Sync and Async API Parity
+  - PRINCIPLE_4: Zero-Dependency Dataframe Interoperability
+  - PRINCIPLE_5: Clean Testing Discipline
+- Added sections: Technology Stack & Constraints, Development Workflow & Code Quality
+- Removed sections: None
+- Templates requiring updates (✅ updated / ⚠ pending):
+  - .specify/templates/plan-template.md (✅ updated)
+  - .specify/templates/spec-template.md (✅ updated)
+  - .specify/templates/tasks-template.md (✅ updated)
+  - .specify/templates/checklist-template.md (✅ updated)
+- Follow-up TODOs: None
+-->
+
+# Reaper Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Browser Fingerprint Emulation & Proxy Integration
+To prevent API blocking (HTTP 403), both Sync and Async clients MUST implement browser-like header emulation. All requests MUST support standard and rotating proxy integration. Clients must raise and handle RealtorAuthenticationError appropriately.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Pydantic-Validated Models
+All API responses MUST be mapped and validated using Pydantic (v2) models (e.g., Address, Coordinate, PropertyDescription, TaxHistory). No raw dictionaries should be returned directly to users.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Sync and Async API Parity
+Every frontdoor GraphQL endpoint interaction MUST be supported by both RealtorClient (sync) and AsyncRealtorClient (async), ensuring complete functional parity and signature alignment.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Zero-Dependency Dataframe Interoperability
+Methods like search_properties result sets MUST support export to pandas/polars DataFrames using Narwhals for zero-dependency backend detection. No hard dependencies on pandas or polars are allowed in production.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Clean Testing Discipline
+TDD is highly recommended. All API integrations and client behaviors MUST be thoroughly tested using pytest and pytest-asyncio with robust API mocking to prevent rate-limiting and flaky test runs.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technology Stack & Constraints
+Reaper targets modern Python versions (>= 3.14). Primary libraries are httpx for HTTP routing, pydantic for validation, and narwhals for dataframes. No heavyweight frameworks or unnecessary dependencies are permitted. Performance targets must handle lazy streaming pagination efficiently.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Workflow & Code Quality
+All changes must be fully typed and pass mypy/ruff checks. Code style follows strict formatting rules. Unused imports, unused variables, and draft placeholders must be removed before commit. The AGENTS.md document must remain in sync with any public tool definitions.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+The Reaper Constitution governs all design and development decisions. Any modification to this constitution requires a version bump: MAJOR for backward-incompatible removals, MINOR for new principles/sections, and PATCH for non-semantic updates/clarifications. All changes must be verified against current templates and documentation.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-06-09 | **Last Amended**: 2026-06-09
