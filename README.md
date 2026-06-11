@@ -113,10 +113,11 @@ with RealtorClient() as client:
         print(f"Found: {item.single_line_address} (Slug: {item.slug_id})")
 ```
 
-### 4. Dataframe Conversion (Zero-Dependency via Narwhals)
+### 4. Dataframe Conversion & Direct Search (Zero-Dependency via Narwhals)
 
-Convert your search results directly to a Narwhals DataFrame. Narwhals has zero mandatory dependencies on Polars or Pandas, but will automatically detect and wrap whichever backend is installed in your local environment.
+Convert search results directly to a Narwhals DataFrame or execute paginated searches directly into a combined DataFrame. Narwhals has zero mandatory dependencies on Polars or Pandas, but will automatically detect and wrap whichever backend is installed in your local environment.
 
+#### Convert Search Result Models to a DataFrame:
 ```python
 from reaper import RealtorClient
 
@@ -130,6 +131,39 @@ with RealtorClient() as client:
     # Run generic library-agnostic filters
     filtered_df = df.filter(df["beds"] >= 4)
     print(filtered_df.select(["property_id", "list_price", "beds", "address_line"]))
+```
+
+#### Query Search Results Directly as a DataFrame:
+You can also use the convenience methods `search_properties_dataframe()` on both synchronous and asynchronous clients to automatically paginate and return a combined DataFrame:
+
+```python
+from reaper import RealtorClient
+
+with RealtorClient() as client:
+    # Fetch paginated search results directly as a Narwhals DataFrame
+    df = client.search_properties_dataframe(
+        location="Austin, TX",
+        max_results=50,
+        prop_type=["single_family"]
+    )
+    print("Direct DataFrame shape:", df.shape)
+```
+
+```python
+import asyncio
+from reaper import AsyncRealtorClient
+
+async def main():
+    async with AsyncRealtorClient() as client:
+        # Fetch paginated search results asynchronously directly as a Narwhals DataFrame
+        df = await client.search_properties_dataframe(
+            location="Austin, TX",
+            max_results=50,
+            prop_type=["single_family"]
+        )
+        print("Async DataFrame shape:", df.shape)
+
+asyncio.run(main())
 ```
 
 ---

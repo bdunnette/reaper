@@ -60,9 +60,11 @@ We will modify client methods:
 
 ```text
 reaper/client.py         # Add search_properties_dataframe to RealtorClient and AsyncRealtorClient
+README.md                # Document search_properties_dataframe with usage examples
+examples/narwhals_dataframe.py # Add search_properties_dataframe example
 ```
 
-**Structure Decision**: Single project layout. Adding client features in `reaper/client.py`.
+**Structure Decision**: Single project layout. Adding client features in `reaper/client.py`, updating documentation in `README.md`, and updating examples in `examples/narwhals_dataframe.py`.
 
 ## Complexity Tracking
 

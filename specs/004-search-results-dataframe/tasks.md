@@ -60,7 +60,18 @@
 
 **Checkpoint**: Asynchronous DataFrame search functionality verified.
 
-## Phase 5: Polish & Cross-Cutting Concerns
+## Phase 5: Documentation & Example Updates (Priority: P3)
+
+**Goal**: Provide clear documentation and runnable examples for the newly added client dataframe search methods.
+
+**Independent Test**: Run python example script and verify it prints the retrieved dataframe shape and content.
+
+### Implementation for Phase 5
+
+- [X] T009 [US3] Add search_properties_dataframe usage examples to README.md
+- [X] T010 [US3] Update examples/narwhals_dataframe.py to include search_properties_dataframe example
+
+## Phase 6: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements that affect multiple user stories
 
@@ -76,9 +87,11 @@
 - **Setup (Phase 1)**: No dependencies - can start immediately
 - **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
 - **User Stories (Phase 3+)**: All depend on Foundational phase completion
+- **Documentation (Phase 5)**: Depends on Phase 3 and Phase 4 implementation completion
 - **Polish (Final Phase)**: Depends on all desired user stories being complete
 
 ### User Story Dependencies
 
 - **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories
 - **User Story 2 (P2)**: Logically independent but can be implemented sequentially
+- **User Story 3 (P3)**: Depends on US1 and US2 completion

@@ -40,3 +40,16 @@ Verify that the async client can retrieve a DataFrame of properties.
 
    asyncio.run(run())
    ```
+
+### Scenario 3: README Documentation Verification
+
+Verify that the README contains documentation and code examples for the newly added `search_properties_dataframe` methods on both clients.
+
+1. **Verify README structure**: Ensure there is a section explaining how to query search results directly as a Narwhals DataFrame.
+2. **Verify examples**: Ensure the code snippets in the README compile and match the method signatures.
+
+### Scenario 4: Examples Directory Verification
+
+Verify that `examples/narwhals_dataframe.py` includes a clean, executable demonstration of `search_properties_dataframe`.
+
+1. **Run example**: Run the example script using `uv run python examples/narwhals_dataframe.py` (with `PYTHONPATH=.`) and verify it runs without error and outputs dataframe shape and content.

@@ -1,10 +1,29 @@
 # examples/narwhals_dataframe.py
 
 """
-Example showing how to convert search results to a Narwhals-wrapped DataFrame.
+Example showing how to convert search results to a Narwhals-wrapped DataFrame,
+including directly retrieving search results as a combined DataFrame sync & async.
 """
 
-from reaper import RealtorClient, RealtorError
+import asyncio
+from reaper import RealtorClient, AsyncRealtorClient, RealtorError
+
+async def run_async_example():
+    print("\n--- Running Asynchronous DataFrame Search Example ---")
+    async with AsyncRealtorClient() as client:
+        try:
+            print("Searching properties in Austin, TX directly as a DataFrame (async)...")
+            df = await client.search_properties_dataframe(
+                location="Austin, TX",
+                price_max=800000,
+                max_results=5
+            )
+            print("Async DataFrame shape:", df.shape)
+            print(df.select(["property_id", "list_price", "beds", "address_line"]))
+        except ImportError as e:
+            print(f"[Async Environment Info]: {e}")
+        except RealtorError as e:
+            print(f"An async error occurred: {e}")
 
 def main():
     print("Initializing RealtorClient...")
@@ -46,12 +65,28 @@ def main():
                 native_df = df.to_native()
                 print("\nNative DataFrame object:", type(native_df))
 
+                # 5. Direct search as DataFrame convenience method demo
+                print("\n--- Direct Search as DataFrame ---")
+                direct_df = client.search_properties_dataframe(
+                    location="Austin, TX",
+                    price_max=800000,
+                    max_results=5
+                )
+                print("Direct DataFrame shape:", direct_df.shape)
+                print(direct_df.select(["property_id", "list_price", "beds", "address_line"]))
+
             except ImportError as e:
                 print(f"\n[Environment Info]: {e}")
                 print("Tip: Run `pip install polars` or `pip install pandas` to test the dataframe conversion.")
 
         except RealtorError as e:
             print(f"An error occurred: {e}")
+
+    # Run the async example
+    try:
+        asyncio.run(run_async_example())
+    except Exception as e:
+        print(f"Could not run async example: {e}")
 
 if __name__ == "__main__":
     main()
