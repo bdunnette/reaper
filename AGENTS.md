@@ -80,5 +80,5 @@ except RealtorAuthenticationError:
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-[plan.md](file:///C:/Users/dunn0172/Documents/GitHub/reaper/specs/001-pip-install-git/plan.md)
+[plan.md](file:///C:/Users/dunn0172/Documents/GitHub/reaper/specs/002-python-312-support/plan.md)
 <!-- SPECKIT END -->
