@@ -6,7 +6,7 @@ Synchronous and Asynchronous GraphQL clients to retrieve real estate data from R
 
 from typing import Any, Generator, AsyncGenerator
 import httpx
-from .queries import PROPERTY_SEARCH_QUERY, PROPERTY_DETAIL_QUERY, AUTOCOMPLETE_QUERY
+from .queries import PROPERTY_SEARCH_QUERY, PROPERTY_DETAIL_QUERY
 from .models import Property, HomeSearchResult, AutocompleteItem
 from .exceptions import RealtorError, RealtorAPIError, RealtorRequestError, RealtorAuthenticationError
 

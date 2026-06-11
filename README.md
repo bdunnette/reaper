@@ -19,13 +19,28 @@ Built with modern Python (supporting Python >= 3.14), `httpx`, and `pydantic` (v
 
 ## 🚀 Installation
 
-This project uses `uv` for lightning-fast package management:
+### Installing from Git (via pip)
+
+To install the `reaper` library directly from the GitHub repository, run:
 
 ```bash
-uv add httpx pydantic
+pip install git+https://github.com/bdunnette/reaper.git
+```
+
+This will automatically download and install `reaper` along with its required dependencies: `httpx`, `narwhals`, and `pydantic`.
+
+### Development Installation
+
+If you are setting up `reaper` for local development, clone the repository and use `uv` to sync the environment:
+
+```bash
+git clone https://github.com/bdunnette/reaper.git
+cd reaper
+uv sync
 ```
 
 ---
+
 
 ## 💻 Quickstart
 

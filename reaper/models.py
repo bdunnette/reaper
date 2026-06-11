@@ -91,11 +91,11 @@ class HomeSearchResult(BaseModel):
 
         if backend is None:
             try:
-                import polars as pl
+                import polars as pl  # noqa: F401
                 backend = "polars"
             except ImportError:
                 try:
-                    import pandas as pd
+                    import pandas as pd  # noqa: F401
                     backend = "pandas"
                 except ImportError:
                     raise ImportError(
