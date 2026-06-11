@@ -80,5 +80,5 @@ except RealtorAuthenticationError:
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-[plan.md](file:///C:/Users/dunn0172/Documents/GitHub/reaper/specs/003-pydantic-dependency-conflict/plan.md)
+[plan.md](file:///C:/Users/dunn0172/Documents/GitHub/reaper/specs/004-search-results-dataframe/plan.md)
 <!-- SPECKIT END -->

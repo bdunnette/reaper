@@ -190,9 +190,17 @@ def test_to_dataframe_zero_dependency(monkeypatch):
     monkeypatch.setattr(client.client, "post", mock_post)
     res = client.search_properties(location="Austin, TX")
 
-    # Since neither polars nor pandas is installed in the dependencies anymore,
-    # calling to_dataframe() without an installed backend will raise an ImportError.
-    # This verifies the Narwhals integration is hooked up and executes correctly.
+    # Mock import of polars and pandas to verify zero-dependency fallback behavior
+    import builtins
+    original_import = builtins.__import__
+
+    def mock_import(name, *args, **kwargs):
+        if name in ("polars", "pandas"):
+            raise ImportError(f"Mocked missing {name}")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", mock_import)
+
     with pytest.raises(ImportError) as exc_info:
         res.to_dataframe()
 
@@ -272,4 +280,48 @@ async def test_async_search_properties_paginated(monkeypatch):
     assert len(results) == 1
     assert results[0].property_id == "12345"
     assert call_count == 2
+    await client.close()
+
+
+def test_sync_search_properties_dataframe(monkeypatch):
+    """Test the synchronous search_properties_dataframe method."""
+    client = RealtorClient()
+
+    def mock_post(*args, **kwargs):
+        class MockResponse:
+            status_code = 200
+            def json(self):
+                return make_search_response(results=[PropertyFactory(property_id="12345")])
+            def raise_for_status(self):
+                pass
+        return MockResponse()
+
+    monkeypatch.setattr(client.client, "post", mock_post)
+    df = client.search_properties_dataframe(location="Austin, TX", max_results=1)
+
+    assert df is not None
+    assert "property_id" in df.columns
+    assert df.shape[0] == 1
+
+
+@pytest.mark.asyncio
+async def test_async_search_properties_dataframe(monkeypatch):
+    """Test the asynchronous search_properties_dataframe method."""
+    client = AsyncRealtorClient()
+
+    async def mock_post(*args, **kwargs):
+        class MockResponse:
+            status_code = 200
+            def json(self):
+                return make_search_response(results=[PropertyFactory(property_id="12345")])
+            def raise_for_status(self):
+                pass
+        return MockResponse()
+
+    monkeypatch.setattr(client.client, "post", mock_post)
+    df = await client.search_properties_dataframe(location="Austin, TX", max_results=1)
+
+    assert df is not None
+    assert "property_id" in df.columns
+    assert df.shape[0] == 1
     await client.close()

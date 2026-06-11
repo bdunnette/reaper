@@ -243,6 +243,58 @@ class RealtorClient:
             if len(result.results) < limit:
                 break
 
+    def search_properties_dataframe(
+        self,
+        location: str,
+        page_size: int = 20,
+        max_results: int | None = None,
+        status: list[str] | None = None,
+        price_min: int | None = None,
+        price_max: int | None = None,
+        beds_min: int | None = None,
+        beds_max: int | None = None,
+        baths_min: float | None = None,
+        baths_max: float | None = None,
+        prop_type: list[str] | None = None,
+        backend: str | None = None,
+    ) -> Any:
+        """
+        Search for properties and return results aggregated directly as a Narwhals DataFrame.
+
+        Args:
+            location: City/state (e.g. "Austin, TX"), postal code, or location query.
+            page_size: Number of results to return per page (default: 20).
+            max_results: Maximum total results to include. If None, retrieves all available results.
+            status: Listing status, e.g. ["for_sale", "for_rent", "sold"].
+            price_min: Minimum listing price.
+            price_max: Maximum listing price.
+            beds_min: Minimum number of bedrooms.
+            beds_max: Maximum number of bedrooms.
+            baths_min: Minimum number of bathrooms.
+            baths_max: Maximum number of bathrooms.
+            prop_type: List of property types, e.g. ["single_family", "condo"].
+            backend: The dataframe backend to use ("polars", "pandas", or None).
+
+        Returns:
+            A narwhals.DataFrame containing the aggregated properties.
+        """
+        results = list(
+            self.search_properties_paginated(
+                location=location,
+                page_size=page_size,
+                max_results=max_results,
+                status=status,
+                price_min=price_min,
+                price_max=price_max,
+                beds_min=beds_min,
+                beds_max=beds_max,
+                baths_min=baths_min,
+                baths_max=baths_max,
+                prop_type=prop_type,
+            )
+        )
+        return HomeSearchResult(results=results, total=len(results), count=len(results)).to_dataframe(backend=backend)
+
     def get_property_detail(self, property_id: str) -> Property | None:
         """
         Retrieve complete details for a single property by its ID.
@@ -546,6 +598,58 @@ class AsyncRealtorClient:
             offset += len(result.results)
             if len(result.results) < limit:
                 break
+
+    async def search_properties_dataframe(
+        self,
+        location: str,
+        page_size: int = 20,
+        max_results: int | None = None,
+        status: list[str] | None = None,
+        price_min: int | None = None,
+        price_max: int | None = None,
+        beds_min: int | None = None,
+        beds_max: int | None = None,
+        baths_min: float | None = None,
+        baths_max: float | None = None,
+        prop_type: list[str] | None = None,
+        backend: str | None = None,
+    ) -> Any:
+        """
+        Search for properties asynchronously and return results aggregated directly as a Narwhals DataFrame.
+
+        Args:
+            location: City/state (e.g. "Austin, TX"), postal code, or location query.
+            page_size: Number of results to return per page (default: 20).
+            max_results: Maximum total results to include. If None, retrieves all available results.
+            status: Listing status, e.g. ["for_sale", "for_rent", "sold"].
+            price_min: Minimum listing price.
+            price_max: Maximum listing price.
+            beds_min: Minimum number of bedrooms.
+            beds_max: Maximum number of bedrooms.
+            baths_min: Minimum number of bathrooms.
+            baths_max: Maximum number of bathrooms.
+            prop_type: List of property types, e.g. ["single_family", "condo"].
+            backend: The dataframe backend to use ("polars", "pandas", or None).
+
+        Returns:
+            A narwhals.DataFrame containing the aggregated properties.
+        """
+        results = []
+        async for prop in self.search_properties_paginated(
+            location=location,
+            page_size=page_size,
+            max_results=max_results,
+            status=status,
+            price_min=price_min,
+            price_max=price_max,
+            beds_min=beds_min,
+            beds_max=beds_max,
+            baths_min=baths_min,
+            baths_max=baths_max,
+            prop_type=prop_type,
+        ):
+            results.append(prop)
+        return HomeSearchResult(results=results, total=len(results), count=len(results)).to_dataframe(backend=backend)
 
     async def get_property_detail(self, property_id: str) -> Property | None:
         """
