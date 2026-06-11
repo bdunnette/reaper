@@ -13,83 +13,31 @@ from reaper import (
     RealtorAPIError,
 )
 
-# Mock Response Data
-MOCK_AUTOCOMPLETE_RESPONSE = {
-    "data": {
-        "autocomplete": {
-            "results": [
-                {
-                    "area_type": "city",
-                    "city": "Austin",
-                    "state_code": "TX",
-                    "postal_code": None,
-                    "slug_id": "Austin_TX",
-                    "single_line_address": "Austin, TX",
-                }
-            ]
-        }
-    }
-}
+from factories import AutocompleteResultFactory, PropertyFactory, SearchResponseFactory
 
-MOCK_SEARCH_RESPONSE = {
-    "data": {
-        "home_search": {
-            "count": 1,
-            "total": 1,
-            "results": [
-                {
-                    "property_id": "12345",
-                    "listing_id": "67890",
-                    "status": "for_sale",
-                    "list_price": 500000,
-                    "description": {
-                        "beds": 3,
-                        "baths": 2.5,
-                        "sqft": 2000,
-                        "year_built": 2015,
-                        "type": "single_family",
-                    },
-                    "location": {
-                        "address": {
-                            "line": "123 Main St",
-                            "city": "Austin",
-                            "state_code": "TX",
-                            "postal_code": "78701",
-                        }
-                    },
-                }
-            ],
-        }
-    }
-}
+# Helper function to generate mock GraphQL payloads
+def make_autocomplete_response(results=None):
+    if results is None:
+        results = [AutocompleteResultFactory()]
+    return {"data": {"autocomplete": {"results": results}}}
 
-MOCK_DETAIL_RESPONSE = {
-    "data": {
-        "property": {
-            "property_id": "12345",
-            "listing_id": "67890",
-            "status": "for_sale",
-            "list_price": 500000,
-            "description": {
-                "beds": 3,
-                "baths": 2.5,
-                "sqft": 2000,
-                "year_built": 2015,
-                "type": "single_family",
-                "text": "Beautiful home.",
-            },
-            "location": {
-                "address": {
-                    "line": "123 Main St",
-                    "city": "Austin",
-                    "state_code": "TX",
-                    "postal_code": "78701",
-                }
-            },
-            "tax_history": [{"tax": 5000, "year": 2023}],
+def make_search_response(results=None, total=1):
+    if results is None:
+        results = [PropertyFactory()]
+    return {
+        "data": {
+            "home_search": {
+                "count": len(results),
+                "total": total,
+                "results": results
+            }
         }
     }
-}
+
+def make_detail_response(property_id="12345"):
+    prop = PropertyFactory(property_id=property_id)
+    return {"data": {"property": prop}}
+
 
 
 def test_sync_autocomplete(monkeypatch):
@@ -100,7 +48,7 @@ def test_sync_autocomplete(monkeypatch):
         class MockResponse:
             status_code = 200
             def json(self):
-                return MOCK_AUTOCOMPLETE_RESPONSE
+                return make_autocomplete_response(results=[AutocompleteResultFactory(city="Austin", state_code="TX")])
             def raise_for_status(self):
                 pass
         return MockResponse()
@@ -122,7 +70,7 @@ def test_sync_search_properties(monkeypatch):
         class MockResponse:
             status_code = 200
             def json(self):
-                return MOCK_SEARCH_RESPONSE
+                return make_search_response(results=[PropertyFactory(property_id="12345", list_price=500000, description={"beds": 3, "baths": 2.5, "sqft": 2000, "year_built": 2015, "type": "single_family"})])
             def raise_for_status(self):
                 pass
         return MockResponse()
@@ -144,14 +92,17 @@ def test_sync_get_property_detail(monkeypatch):
     def mock_post(*args, **kwargs):
         json_data = kwargs.get("json", {})
         query_str = json_data.get("query", "")
+        variables = json_data.get("variables", {})
+        query_vars = variables.get("query", {})
+        query_prop_id = query_vars.get("property_id", "12345")
 
         class MockResponse:
             status_code = 200
             def json(self):
                 if "home_search" in query_str:
-                    return MOCK_SEARCH_RESPONSE
+                    return make_search_response(results=[PropertyFactory(property_id=query_prop_id)])
                 else:
-                    return MOCK_DETAIL_RESPONSE
+                    return make_detail_response(property_id=query_prop_id)
             def raise_for_status(self):
                 pass
         return MockResponse()
@@ -210,7 +161,7 @@ async def test_async_autocomplete(monkeypatch):
         class MockResponse:
             status_code = 200
             def json(self):
-                return MOCK_AUTOCOMPLETE_RESPONSE
+                return make_autocomplete_response(results=[AutocompleteResultFactory(city="Austin", state_code="TX")])
             def raise_for_status(self):
                 pass
         return MockResponse()
@@ -231,7 +182,7 @@ def test_to_dataframe_zero_dependency(monkeypatch):
         class MockResponse:
             status_code = 200
             def json(self):
-                return MOCK_SEARCH_RESPONSE
+                return make_search_response()
             def raise_for_status(self):
                 pass
         return MockResponse()
@@ -271,7 +222,7 @@ def test_sync_search_properties_paginated(monkeypatch):
                             }
                         }
                     }
-                return MOCK_SEARCH_RESPONSE
+                return make_search_response(results=[PropertyFactory(property_id="12345")])
             def raise_for_status(self):
                 pass
         return MockResponse()
@@ -307,7 +258,7 @@ async def test_async_search_properties_paginated(monkeypatch):
                             }
                         }
                     }
-                return MOCK_SEARCH_RESPONSE
+                return make_search_response(results=[PropertyFactory(property_id="12345")])
             def raise_for_status(self):
                 pass
         return MockResponse()
