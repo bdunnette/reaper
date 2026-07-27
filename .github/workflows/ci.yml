@@ -9,9 +9,12 @@ on:
     branches: [ main, master ]
 
 jobs:
-  test_and_build:
-    name: Run Tests and Build Package
+  test:
+    name: Run Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout Code
@@ -24,10 +27,42 @@ jobs:
           version: "latest"
 
       - name: Set up Python
-        run: uv python install 3.13
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install Dependencies
         run: uv sync --all-extras --dev
 
       - name: Run Tests
         run: uv run pytest -o pythonpath=.
+
+  build:
+    name: Build Python Wheel (Python ${{ matrix.python-version }})
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Build Wheel
+        run: uv build --wheel
+
+      - name: Upload Built Wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-wheel-${{ matrix.python-version }}
+          path: dist/*.whl
+          if-no-files-found: error
