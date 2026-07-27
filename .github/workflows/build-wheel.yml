@@ -9,8 +9,11 @@ on:
 
 jobs:
   build:
-    name: Build Python Wheel
+    name: Build Python Wheel (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout Code
@@ -23,7 +26,7 @@ jobs:
           version: "latest"
 
       - name: Set up Python
-        run: uv python install 3.12
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Build Wheel
         run: uv build --wheel
@@ -31,6 +34,6 @@ jobs:
       - name: Upload Built Wheel
         uses: actions/upload-artifact@v4
         with:
-          name: python-wheel
+          name: python-wheel-${{ matrix.python-version }}
           path: dist/*.whl
           if-no-files-found: error
