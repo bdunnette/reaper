@@ -1,6 +1,6 @@
 {
   "integration": "speckit",
-  "version": "0.10.0",
+  "version": "0.14.2",
   "installed_at": "2026-06-09T20:47:41.313461+00:00",
   "files": {
     ".specify/scripts/powershell/check-prerequisites.ps1": "9ee549823b6f00c2906fb3fa33a874641425e1ae656a956b8b0ee5553d1a1c77",
