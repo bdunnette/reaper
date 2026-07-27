@@ -6,6 +6,7 @@ Example showing how to search property listings on Realtor.com using the reaper 
 
 from reaper import RealtorClient, RealtorError
 
+
 def main():
     print("Initializing Realtor.com synchronous client...")
 
@@ -19,24 +20,33 @@ def main():
                 price_max=600000,
                 beds_min=3,
                 prop_type=["single_family"],
-                limit=5
+                limit=5,
             )
 
-            print(f"\nFound {search_res.total} matching listings. Showing top {len(search_res.results)}:")
+            print(
+                f"\nFound {search_res.total} matching listings. Showing top {len(search_res.results)}:"
+            )
             for idx, prop in enumerate(search_res.results, 1):
                 addr = prop.location.address if prop.location else None
                 desc = prop.description
 
-                print(f"\n{idx}. Status: [{prop.status.upper()}] | Price: ${prop.list_price:,}")
+                print(
+                    f"\n{idx}. Status: [{prop.status.upper()}] | Price: ${prop.list_price:,}"
+                )
                 if addr:
-                    print(f"   Address: {addr.line}, {addr.city}, {addr.state_code} {addr.postal_code}")
+                    print(
+                        f"   Address: {addr.line}, {addr.city}, {addr.state_code} {addr.postal_code}"
+                    )
                 if desc:
-                    print(f"   Details: {desc.beds} Beds | {desc.baths} Baths | {desc.sqft:,} SqFt | Built: {desc.year_built}")
+                    print(
+                        f"   Details: {desc.beds} Beds | {desc.baths} Baths | {desc.sqft:,} SqFt | Built: {desc.year_built}"
+                    )
                 if prop.primary_photo:
                     print(f"   Photo: {prop.primary_photo.href}")
 
         except RealtorError as e:
             print(f"An error occurred while communicating with Realtor.com: {e}")
+
 
 if __name__ == "__main__":
     main()

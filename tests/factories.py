@@ -1,5 +1,6 @@
 import factory
 
+
 class AutocompleteResultFactory(factory.DictFactory):
     area_type = "city"
     city = factory.Iterator(["Austin", "Seattle", "Miami", "Denver"])
@@ -7,6 +8,7 @@ class AutocompleteResultFactory(factory.DictFactory):
     postal_code = None
     slug_id = factory.LazyAttribute(lambda o: f"{o.city}_{o.state_code}")
     single_line_address = factory.LazyAttribute(lambda o: f"{o.city}, {o.state_code}")
+
 
 class DescriptionFactory(factory.DictFactory):
     beds = factory.Sequence(lambda n: 2 + (n % 4))
@@ -16,14 +18,17 @@ class DescriptionFactory(factory.DictFactory):
     type = "single_family"
     text = "Beautiful home."
 
+
 class AddressFactory(factory.DictFactory):
     line = factory.Sequence(lambda n: f"{100 + n} Main St")
     city = factory.Iterator(["Austin", "Seattle", "Miami", "Denver"])
     state_code = factory.Iterator(["TX", "WA", "FL", "CO"])
     postal_code = factory.Sequence(lambda n: f"7870{n % 10}")
 
+
 class LocationFactory(factory.DictFactory):
     address = factory.SubFactory(AddressFactory)
+
 
 class PropertyFactory(factory.DictFactory):
     property_id = factory.Sequence(lambda n: f"prop_{n}")
@@ -33,6 +38,7 @@ class PropertyFactory(factory.DictFactory):
     description = factory.SubFactory(DescriptionFactory)
     location = factory.SubFactory(LocationFactory)
     tax_history = factory.List([{"tax": 5000, "year": 2023}])
+
 
 class SearchResponseFactory(factory.DictFactory):
     count = 1

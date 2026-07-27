@@ -8,7 +8,12 @@ from typing import Any, Generator, AsyncGenerator
 import httpx
 from .queries import PROPERTY_SEARCH_QUERY, PROPERTY_DETAIL_QUERY
 from .models import Property, HomeSearchResult, AutocompleteItem
-from .exceptions import RealtorError, RealtorAPIError, RealtorRequestError, RealtorAuthenticationError
+from .exceptions import (
+    RealtorError,
+    RealtorAPIError,
+    RealtorRequestError,
+    RealtorAuthenticationError,
+)
 
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -24,6 +29,7 @@ DEFAULT_HEADERS = {
 }
 
 DEFAULT_ENDPOINT = "https://www.realtor.com/frontdoor/graphql"
+
 
 class RealtorClient:
     """Synchronous Realtor.com GraphQL API Client."""
@@ -128,9 +134,7 @@ class RealtorClient:
             A HomeSearchResult model.
         """
         # Build the search criteria dynamically
-        query_criteria = {
-            "search_location": {"location": location}
-        }
+        query_criteria = {"search_location": {"location": location}}
         if status:
             # Convert status strings to lowercase Enums (e.g. "FOR_SALE" -> "for_sale")
             query_criteria["status"] = [s.lower() for s in status]
@@ -293,7 +297,9 @@ class RealtorClient:
                 prop_type=prop_type,
             )
         )
-        return HomeSearchResult(results=results, total=len(results), count=len(results)).to_dataframe(backend=backend)
+        return HomeSearchResult(
+            results=results, total=len(results), count=len(results)
+        ).to_dataframe(backend=backend)
 
     def get_property_detail(self, property_id: str) -> Property | None:
         """
@@ -307,8 +313,7 @@ class RealtorClient:
         """
         # 1. Fetch core details using home_search
         search_res = self._execute_query(
-            PROPERTY_SEARCH_QUERY,
-            {"query": {"property_id": property_id}}
+            PROPERTY_SEARCH_QUERY, {"query": {"property_id": property_id}}
         )
         results = search_res.get("home_search", {}).get("results") or []
         if not results:
@@ -318,8 +323,7 @@ class RealtorClient:
         # 2. Fetch history using property query
         try:
             history_res = self._execute_query(
-                PROPERTY_DETAIL_QUERY,
-                {"property_id": property_id}
+                PROPERTY_DETAIL_QUERY, {"property_id": property_id}
             )
             hist_data = history_res.get("property") or {}
             for k, v in hist_data.items():
@@ -344,7 +348,7 @@ class RealtorClient:
         try:
             response = self.client.get(
                 "https://www.realtor.com/api/v1/suggest",
-                params={"input": query, "client_id": "rdc-x"}
+                params={"input": query, "client_id": "rdc-x"},
             )
             if response.status_code in (401, 403):
                 raise RealtorAuthenticationError(
@@ -359,7 +363,11 @@ class RealtorClient:
                 )
             # Handle GraphQL-style nested data envelopes if present
             suggestion_data = data.get("data") or data
-            results = suggestion_data.get("autocomplete") or suggestion_data.get("suggestions") or []
+            results = (
+                suggestion_data.get("autocomplete")
+                or suggestion_data.get("suggestions")
+                or []
+            )
             if isinstance(results, dict):
                 results = results.get("results") or []
             return [AutocompleteItem.model_validate(item) for item in results]
@@ -403,7 +411,9 @@ class AsyncRealtorClient:
             follow_redirects=True,
         )
 
-    async def _execute_query(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+    async def _execute_query(
+        self, query: str, variables: dict[str, Any]
+    ) -> dict[str, Any]:
         operation_name = None
         if "query " in query:
             parts = query.split("query ")
@@ -484,9 +494,7 @@ class AsyncRealtorClient:
             A HomeSearchResult model.
         """
         # Build the search criteria dynamically
-        query_criteria = {
-            "search_location": {"location": location}
-        }
+        query_criteria = {"search_location": {"location": location}}
         if status:
             # Convert status strings to lowercase Enums (e.g. "FOR_SALE" -> "for_sale")
             query_criteria["status"] = [s.lower() for s in status]
@@ -649,7 +657,9 @@ class AsyncRealtorClient:
             prop_type=prop_type,
         ):
             results.append(prop)
-        return HomeSearchResult(results=results, total=len(results), count=len(results)).to_dataframe(backend=backend)
+        return HomeSearchResult(
+            results=results, total=len(results), count=len(results)
+        ).to_dataframe(backend=backend)
 
     async def get_property_detail(self, property_id: str) -> Property | None:
         """
@@ -663,8 +673,7 @@ class AsyncRealtorClient:
         """
         # 1. Fetch core details using home_search
         search_res = await self._execute_query(
-            PROPERTY_SEARCH_QUERY,
-            {"query": {"property_id": property_id}}
+            PROPERTY_SEARCH_QUERY, {"query": {"property_id": property_id}}
         )
         results = search_res.get("home_search", {}).get("results") or []
         if not results:
@@ -674,8 +683,7 @@ class AsyncRealtorClient:
         # 2. Fetch history using property query
         try:
             history_res = await self._execute_query(
-                PROPERTY_DETAIL_QUERY,
-                {"property_id": property_id}
+                PROPERTY_DETAIL_QUERY, {"property_id": property_id}
             )
             hist_data = history_res.get("property") or {}
             for k, v in hist_data.items():
@@ -700,7 +708,7 @@ class AsyncRealtorClient:
         try:
             response = await self.client.get(
                 "https://www.realtor.com/api/v1/suggest",
-                params={"input": query, "client_id": "rdc-x"}
+                params={"input": query, "client_id": "rdc-x"},
             )
             if response.status_code in (401, 403):
                 raise RealtorAuthenticationError(
@@ -715,7 +723,11 @@ class AsyncRealtorClient:
                 )
             # Handle GraphQL-style nested data envelopes if present
             suggestion_data = data.get("data") or data
-            results = suggestion_data.get("autocomplete") or suggestion_data.get("suggestions") or []
+            results = (
+                suggestion_data.get("autocomplete")
+                or suggestion_data.get("suggestions")
+                or []
+            )
             if isinstance(results, dict):
                 results = results.get("results") or []
             return [AutocompleteItem.model_validate(item) for item in results]

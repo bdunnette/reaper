@@ -13,7 +13,8 @@ from reaper import (
     RealtorAPIError,
 )
 
-from factories import AutocompleteResultFactory, PropertyFactory, SearchResponseFactory
+from factories import AutocompleteResultFactory, PropertyFactory
+
 
 # Helper function to generate mock GraphQL payloads
 def make_autocomplete_response(results=None):
@@ -21,23 +22,20 @@ def make_autocomplete_response(results=None):
         results = [AutocompleteResultFactory()]
     return {"data": {"autocomplete": {"results": results}}}
 
+
 def make_search_response(results=None, total=1):
     if results is None:
         results = [PropertyFactory()]
     return {
         "data": {
-            "home_search": {
-                "count": len(results),
-                "total": total,
-                "results": results
-            }
+            "home_search": {"count": len(results), "total": total, "results": results}
         }
     }
+
 
 def make_detail_response(property_id="12345"):
     prop = PropertyFactory(property_id=property_id)
     return {"data": {"property": prop}}
-
 
 
 def test_sync_autocomplete(monkeypatch):
@@ -47,10 +45,15 @@ def test_sync_autocomplete(monkeypatch):
     def mock_get(*args, **kwargs):
         class MockResponse:
             status_code = 200
+
             def json(self):
-                return make_autocomplete_response(results=[AutocompleteResultFactory(city="Austin", state_code="TX")])
+                return make_autocomplete_response(
+                    results=[AutocompleteResultFactory(city="Austin", state_code="TX")]
+                )
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "get", mock_get)
@@ -69,10 +72,27 @@ def test_sync_search_properties(monkeypatch):
     def mock_post(*args, **kwargs):
         class MockResponse:
             status_code = 200
+
             def json(self):
-                return make_search_response(results=[PropertyFactory(property_id="12345", list_price=500000, description={"beds": 3, "baths": 2.5, "sqft": 2000, "year_built": 2015, "type": "single_family"})])
+                return make_search_response(
+                    results=[
+                        PropertyFactory(
+                            property_id="12345",
+                            list_price=500000,
+                            description={
+                                "beds": 3,
+                                "baths": 2.5,
+                                "sqft": 2000,
+                                "year_built": 2015,
+                                "type": "single_family",
+                            },
+                        )
+                    ]
+                )
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "post", mock_post)
@@ -98,13 +118,18 @@ def test_sync_get_property_detail(monkeypatch):
 
         class MockResponse:
             status_code = 200
+
             def json(self):
                 if "home_search" in query_str:
-                    return make_search_response(results=[PropertyFactory(property_id=query_prop_id)])
+                    return make_search_response(
+                        results=[PropertyFactory(property_id=query_prop_id)]
+                    )
                 else:
                     return make_detail_response(property_id=query_prop_id)
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "post", mock_post)
@@ -122,8 +147,10 @@ def test_sync_authentication_error(monkeypatch):
     def mock_get(*args, **kwargs):
         class MockResponse:
             status_code = 403
+
             def raise_for_status(self):
                 raise httpx.HTTPStatusError("Forbidden", request=None, response=self)
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "get", mock_get)
@@ -139,10 +166,13 @@ def test_sync_graphql_errors(monkeypatch):
     def mock_get(*args, **kwargs):
         class MockResponse:
             status_code = 200
+
             def json(self):
                 return {"errors": [{"message": "Invalid query parameters"}]}
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "get", mock_get)
@@ -160,10 +190,15 @@ async def test_async_autocomplete(monkeypatch):
     async def mock_get(*args, **kwargs):
         class MockResponse:
             status_code = 200
+
             def json(self):
-                return make_autocomplete_response(results=[AutocompleteResultFactory(city="Austin", state_code="TX")])
+                return make_autocomplete_response(
+                    results=[AutocompleteResultFactory(city="Austin", state_code="TX")]
+                )
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "get", mock_get)
@@ -181,10 +216,13 @@ def test_to_dataframe_zero_dependency(monkeypatch):
     def mock_post(*args, **kwargs):
         class MockResponse:
             status_code = 200
+
             def json(self):
                 return make_search_response()
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "post", mock_post)
@@ -192,6 +230,7 @@ def test_to_dataframe_zero_dependency(monkeypatch):
 
     # Mock import of polars and pandas to verify zero-dependency fallback behavior
     import builtins
+
     original_import = builtins.__import__
 
     def mock_import(name, *args, **kwargs):
@@ -216,27 +255,31 @@ def test_sync_search_properties_paginated(monkeypatch):
     def mock_post(*args, **kwargs):
         nonlocal call_count
         call_count += 1
+
         class MockResponse:
             status_code = 200
+
             def json(self):
                 # On the second call, return empty list of results to simulate end of pagination
                 if call_count > 1:
                     return {
-                        "data": {
-                            "home_search": {
-                                "count": 0,
-                                "total": 1,
-                                "results": []
-                            }
-                        }
+                        "data": {"home_search": {"count": 0, "total": 1, "results": []}}
                     }
-                return make_search_response(results=[PropertyFactory(property_id="12345")])
+                return make_search_response(
+                    results=[PropertyFactory(property_id="12345")]
+                )
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "post", mock_post)
-    results = list(client.search_properties_paginated(location="Austin, TX", page_size=1, max_results=5))
+    results = list(
+        client.search_properties_paginated(
+            location="Austin, TX", page_size=1, max_results=5
+        )
+    )
 
     assert len(results) == 1
     assert results[0].property_id == "12345"
@@ -253,28 +296,30 @@ async def test_async_search_properties_paginated(monkeypatch):
     async def mock_post(*args, **kwargs):
         nonlocal call_count
         call_count += 1
+
         class MockResponse:
             status_code = 200
+
             def json(self):
                 if call_count > 1:
                     return {
-                        "data": {
-                            "home_search": {
-                                "count": 0,
-                                "total": 1,
-                                "results": []
-                            }
-                        }
+                        "data": {"home_search": {"count": 0, "total": 1, "results": []}}
                     }
-                return make_search_response(results=[PropertyFactory(property_id="12345")])
+                return make_search_response(
+                    results=[PropertyFactory(property_id="12345")]
+                )
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "post", mock_post)
 
     results = []
-    async for prop in client.search_properties_paginated(location="Austin, TX", page_size=1, max_results=5):
+    async for prop in client.search_properties_paginated(
+        location="Austin, TX", page_size=1, max_results=5
+    ):
         results.append(prop)
 
     assert len(results) == 1
@@ -290,10 +335,15 @@ def test_sync_search_properties_dataframe(monkeypatch):
     def mock_post(*args, **kwargs):
         class MockResponse:
             status_code = 200
+
             def json(self):
-                return make_search_response(results=[PropertyFactory(property_id="12345")])
+                return make_search_response(
+                    results=[PropertyFactory(property_id="12345")]
+                )
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "post", mock_post)
@@ -312,10 +362,15 @@ async def test_async_search_properties_dataframe(monkeypatch):
     async def mock_post(*args, **kwargs):
         class MockResponse:
             status_code = 200
+
             def json(self):
-                return make_search_response(results=[PropertyFactory(property_id="12345")])
+                return make_search_response(
+                    results=[PropertyFactory(property_id="12345")]
+                )
+
             def raise_for_status(self):
                 pass
+
         return MockResponse()
 
     monkeypatch.setattr(client.client, "post", mock_post)
